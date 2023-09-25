@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/mrmarble/deco"
+	"github.com/circle2jt/deco"
 )
 
 func main() {
