@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/mrmarble/deco/utils"
+	"github.com/circle2jt/deco/utils"
 )
 
 const (
