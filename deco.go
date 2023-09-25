@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/mrmarble/deco/utils"
+	"github.com/circle2jt/deco/utils"
 )
 
 var (
