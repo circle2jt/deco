@@ -188,11 +188,14 @@ func (c *Client) DeviceList() (*DeviceListResp, error) {
 }
 
 // ClientList returns the list of connected devices
-func (c *Client) ClientList() (*ClientListResp, error) {
+func (c *Client) ClientList(mac string) (*ClientListResp, error) {
+	if mac == "" {
+		mac = "default"
+	}
 	var result ClientListResp
 	request := request{
 		Operation: "read",
-		Params:    map[string]string{"device_mac": "default"},
+		Params:    map[string]string{"device_mac": mac},
 	}
 	jsonRequest, _ := json.Marshal(request)
 	err := c.doEncryptedPost(fmt.Sprintf(";stok=%s/admin/client", c.stok), EndpointArgs{form: "client_list"}, jsonRequest, false, &result)
