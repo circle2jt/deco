@@ -2,11 +2,13 @@ package deco
 
 import (
 	"bytes"
+	"context"
 	"crypto/rsa"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/circle2jt/deco/utils"
 )
@@ -143,6 +145,8 @@ func (c *Client) doEncryptedPost(path string, params EndpointArgs, body []byte, 
 }
 
 func (c *Client) doPost(path string, params EndpointArgs, body []byte, result interface{}) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	endpt := baseURL.ResolveReference(&url.URL{Path: path})
 	req, err := http.NewRequest("POST", endpt.String(), bytes.NewBuffer(body))
 	if err != nil {
@@ -151,7 +155,7 @@ func (c *Client) doPost(path string, params EndpointArgs, body []byte, result in
 
 	req.Header.Add("Content-Type", "application/json")
 	req.URL.RawQuery = params.queryParams().Encode()
-
+	req = req.WithContext(ctx)
 	res, err := c.c.Do(req)
 	if err != nil {
 		return err
