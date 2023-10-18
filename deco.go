@@ -5,9 +5,12 @@ import (
 	"context"
 	"crypto/rsa"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/circle2jt/deco/utils"
@@ -17,6 +20,19 @@ var (
 	// {"operation": "read"}
 	readBody []byte = []byte{123, 34, 111, 112, 101, 114, 97, 116, 105, 111, 110, 34, 58, 34, 114, 101, 97, 100, 34, 125}
 )
+
+var decoRequestTimeout = 10 * time.Second
+
+func init() {
+	decoRequestTimeoutStr := os.Getenv("DECO_REQUEST_TIMEOUT")
+	if decoRequestTimeoutStr != "" {
+		decoRequestTimeoutNum, err := strconv.Atoi(decoRequestTimeoutStr)
+		if err == nil {
+			decoRequestTimeout = time.Duration(decoRequestTimeoutNum) * time.Second
+		}
+
+	}
+}
 
 type passwordKeyResponse struct {
 	Result struct {
@@ -145,7 +161,7 @@ func (c *Client) doEncryptedPost(path string, params EndpointArgs, body []byte, 
 }
 
 func (c *Client) doPost(path string, params EndpointArgs, body []byte, result interface{}) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), decoRequestTimeout)
 	defer cancel()
 	endpt := baseURL.ResolveReference(&url.URL{Path: path})
 	req, err := http.NewRequest("POST", endpt.String(), bytes.NewBuffer(body))
@@ -163,8 +179,11 @@ func (c *Client) doPost(path string, params EndpointArgs, body []byte, result in
 
 	defer res.Body.Close()
 
-	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
-		return err
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(res.Body)
+
+	if err := json.NewDecoder(buf).Decode(&result); err != nil {
+		return errors.New(err.Error() + " >>> " + buf.String())
 	}
 	return err
 }
