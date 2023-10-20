@@ -91,7 +91,7 @@ func (c *Client) getPasswordKey() (*rsa.PublicKey, error) {
 		form: "keys",
 	}
 	var passKey passwordKeyResponse
-	err, _ := c.doPost(";stok=/login", args, readBody, &passKey)
+	_, err := c.doPost(";stok=/login", args, readBody, &passKey)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +109,7 @@ func (c *Client) getSessionKey() (*rsa.PublicKey, uint, error) {
 		form: "auth",
 	}
 	var passKey sessionKeyResponse
-	err, _ := c.doPost(";stok=/login", args, readBody, &passKey)
+	_, err := c.doPost(";stok=/login", args, readBody, &passKey)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -147,30 +147,34 @@ func (c *Client) doEncryptedPost(path string, params EndpointArgs, body []byte, 
 
 	postData := fmt.Sprintf("sign=%s&data=%s", url.QueryEscape(sign), url.QueryEscape(encryptedData))
 	var req response
-	err, content := c.doPost(path, params, []byte(postData), &req)
+	resData, err := c.doPost(path, params, []byte(postData), &req)
 	if err == nil {
-		decoded, err := utils.AES256Decrypt(req.Data, *c.aes)
-		if err == nil {
-			return json.Unmarshal([]byte(decoded), &result)
+		if req.Data != "" {
+			decoded, err := utils.AES256Decrypt(req.Data, *c.aes)
+			if err == nil {
+				return json.Unmarshal([]byte(decoded), &result)
+			}
+		} else {
+			err = fmt.Errorf(">>> empty: %s, request: %s, response: %s", err.Error(), req.Data, resData)
 		}
 	}
 	if err != nil {
-		fmt.Printf(">>> Error %s", content)
+		err = fmt.Errorf(">>> error: %s, request: %s, response: %s", err.Error(), req.Data, resData)
 	}
 	return err
 }
 
-func (c *Client) doPost(path string, params EndpointArgs, body []byte, result interface{}) (error, string) {
+func (c *Client) doPost(path string, params EndpointArgs, body []byte, result interface{}) (string, error) {
+	endpt := baseURL.ResolveReference(&url.URL{Path: path})
 	ctx, cancel := context.WithTimeout(context.Background(), decoRequestTimeout)
 	defer cancel()
-	endpt := baseURL.ResolveReference(&url.URL{Path: path})
-	req, err := http.NewRequest("POST", endpt.String(), bytes.NewBuffer(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", endpt.String(), bytes.NewBuffer(body))
 	var content string
 	if err == nil {
 		req.Header.Add("Content-Type", "application/json")
 		req.URL.RawQuery = params.queryParams().Encode()
-		req = req.WithContext(ctx)
-		res, err := c.c.Do(req)
+		res, _err := c.c.Do(req)
+		err = _err
 		if err == nil {
 			defer res.Body.Close()
 
@@ -182,5 +186,5 @@ func (c *Client) doPost(path string, params EndpointArgs, body []byte, result in
 			err = json.NewDecoder(buf).Decode(&result)
 		}
 	}
-	return err, content
+	return content, err
 }
