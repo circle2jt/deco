@@ -148,18 +148,19 @@ func (c *Client) doEncryptedPost(path string, params EndpointArgs, body []byte, 
 	postData := fmt.Sprintf("sign=%s&data=%s", url.QueryEscape(sign), url.QueryEscape(encryptedData))
 	var req response
 	resData, err := c.doPost(path, params, []byte(postData), &req)
+	var decoded string
 	if err == nil {
 		if req.Data != "" {
-			decoded, err := utils.AES256Decrypt(req.Data, *c.aes)
+			decoded, err = utils.AES256Decrypt(req.Data, *c.aes)
 			if err == nil {
-				return json.Unmarshal([]byte(decoded), &result)
+				err = json.Unmarshal([]byte(decoded), &result)
 			}
 		} else {
-			err = fmt.Errorf(">>> empty: %s, request: %s, response: %s", err.Error(), req.Data, resData)
+			err = fmt.Errorf("empty: %s", err.Error())
 		}
 	}
 	if err != nil {
-		err = fmt.Errorf(">>> error: %s, request: %s, response: %s", err.Error(), req.Data, resData)
+		err = fmt.Errorf(">>> error: %s, request: %s, response: %s, decoded: %s", err.Error(), req.Data, resData, decoded)
 	}
 	return err
 }
