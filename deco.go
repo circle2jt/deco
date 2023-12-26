@@ -156,7 +156,7 @@ func (c *Client) doEncryptedPost(path string, params EndpointArgs, body []byte, 
 				err = json.Unmarshal([]byte(decoded), &result)
 			}
 		} else {
-			err = fmt.Errorf("empty: %s", err.Error())
+			err = fmt.Errorf("empty: %s", "response data is empty")
 		}
 	}
 	if err != nil {
