@@ -9,6 +9,9 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/circle2jt/deco/utils"
@@ -51,7 +54,7 @@ type ClientListResp struct {
 			Name           string `json:"name"`
 			Online         bool   `json:"online"`
 			OwnerID        string `json:"owner_id"`
-			RemainTime     int   `json:"remain_time"`
+			RemainTime     int    `json:"remain_time"`
 			SpaceID        string `json:"space_id"`
 			UpSpeed        uint   `json:"up_speed"`
 			WireType       string `json:"wire_type"`
@@ -110,10 +113,26 @@ type PerfResp struct {
 	} `json:"result"`
 }
 
+var DecoRequestTimeout = 10 * time.Second
+
+func init() {
+	DecoRequestTimeoutStr := os.Getenv("DECO_REQUEST_TIMEOUT")
+	if DecoRequestTimeoutStr != "" {
+		DecoRequestTimeoutNum, err := strconv.Atoi(DecoRequestTimeoutStr)
+		if err == nil {
+			DecoRequestTimeout = time.Duration(DecoRequestTimeoutNum) * time.Second
+		}
+
+	}
+}
+
 // New creates a new Go client for the Deco-m4 API
 func New(target string) *Client {
 	jar, _ := cookiejar.New(nil)
-	c := &http.Client{Timeout: 10 * time.Second, Jar: jar}
+	c := &http.Client{
+		Timeout: DecoRequestTimeout,
+		Jar:     jar,
+	}
 
 	baseURL.Host = target
 
@@ -200,7 +219,10 @@ func (c *Client) ClientList(mac string) (*ClientListResp, error) {
 	jsonRequest, _ := json.Marshal(request)
 	err := c.doEncryptedPost(fmt.Sprintf(";stok=%s/admin/client", c.stok), EndpointArgs{form: "client_list"}, jsonRequest, false, &result)
 	if err != nil {
-		return nil, err
+		errMsg := err.Error()
+		if !strings.Contains(errMsg, "\"error_code\":0") {
+			return nil, err
+		}
 	}
 	for index := range result.Result.ClientList {
 		name, err := base64.StdEncoding.DecodeString(result.Result.ClientList[index].Name)

@@ -2,15 +2,12 @@ package deco
 
 import (
 	"bytes"
-	"context"
 	"crypto/rsa"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
-	"time"
 
 	"github.com/circle2jt/deco/utils"
 )
@@ -19,19 +16,6 @@ var (
 	// {"operation": "read"}
 	readBody []byte = []byte{123, 34, 111, 112, 101, 114, 97, 116, 105, 111, 110, 34, 58, 34, 114, 101, 97, 100, 34, 125}
 )
-
-var decoRequestTimeout = 10 * time.Second
-
-func init() {
-	decoRequestTimeoutStr := os.Getenv("DECO_REQUEST_TIMEOUT")
-	if decoRequestTimeoutStr != "" {
-		decoRequestTimeoutNum, err := strconv.Atoi(decoRequestTimeoutStr)
-		if err == nil {
-			decoRequestTimeout = time.Duration(decoRequestTimeoutNum) * time.Second
-		}
-
-	}
-}
 
 type passwordKeyResponse struct {
 	Result struct {
@@ -166,17 +150,19 @@ func (c *Client) doEncryptedPost(path string, params EndpointArgs, body []byte, 
 }
 
 func (c *Client) doPost(path string, params EndpointArgs, body []byte, result interface{}) (string, error) {
-	endpt := baseURL.ResolveReference(&url.URL{Path: path})
-	ctx, cancel := context.WithTimeout(context.Background(), decoRequestTimeout)
-	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, "POST", endpt.String(), bytes.NewBuffer(body))
 	var content string
+	endpt := baseURL.ResolveReference(&url.URL{Path: path, RawQuery: params.queryParams().Encode()})
+
+	req, err := http.NewRequest("POST", endpt.String(), bytes.NewBuffer(body))
+
 	if err == nil {
-		req.Header.Add("Content-Type", "application/json")
-		req.URL.RawQuery = params.queryParams().Encode()
+		req.Header.Set("Connection", "keep-alive")
+		req.Header.Set("Content-Length", strconv.Itoa(len(body)))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Host", baseURL.Host)
+		req.Header.Set("Origin", "http://"+baseURL.Host)
 		res, _err := c.c.Do(req)
-		err = _err
-		if err == nil {
+		if _err == nil {
 			defer res.Body.Close()
 
 			buf := new(bytes.Buffer)
@@ -185,6 +171,8 @@ func (c *Client) doPost(path string, params EndpointArgs, body []byte, result in
 			content = buf.String()
 
 			err = json.NewDecoder(buf).Decode(&result)
+		} else {
+			err = _err
 		}
 	}
 	return content, err
