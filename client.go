@@ -45,7 +45,7 @@ type ClientListResp struct {
 			AccessHost     string `json:"access_host"`
 			ClientMesh     bool   `json:"client_mesh"`
 			ClientType     string `json:"client_type"`
-			ConnectionType string `json:"band5"`
+			ConnectionType string `json:"connection_type"`
 			DownSpeed      uint   `json:"down_speed"`
 			EnablePriority bool   `json:"enable_priority"`
 			Interface      string `json:"interface"`
